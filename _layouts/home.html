@@ -1,0 +1,220 @@
+---
+layout: default
+---
+
+{% include site-header.html %}
+
+<main class="main  container">
+
+	<div class="content">
+
+    <article class="article  article--page  typeset">
+
+			{% assign collectiondata = site.collections | where: "label", page.collectionpage | first %}
+			<h1>drinkcheap</h1>
+
+    </article>
+
+    <ul class="list  list--posts">
+    {% for page in site.posts %}
+      <li class="item  item--post" data-day="{{ page.day }}" data-start="{{ page.start }}" data-end="{{ page.end }}" data-recurring="{{ page.recurring }}" data-title="{{ page.title }}">
+        <article class="article  article--post  typeset">
+
+          <h2><a href="{{ site.baseurl }}{{ page.url }}">{{ page.title }}</a></h2><span class="tag">{{ page.area }}</span>
+          {{ page.excerpt | markdownify | truncatewords: 60 }}
+
+        </article>
+      </li>
+    {% endfor %}
+  </ul>
+  </div>
+</main>
+
+<script>
+    function filterPosts() {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const now = new Date();
+        const currDay = days[now.getDay()];
+        const currTime = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+
+        // We have current day (eg Sunday) and time (eg 17:45:00)
+
+        function timeToMinutes(timeStr) {
+                var [hours, minutes, seconds] = timeStr.split(':').map(Number);
+                return hours * 60 + minutes;
+        }
+
+        function isHappeningNow(post) {
+            var postStartDay = post.getAttribute('data-day');
+            var postStart = post.getAttribute('data-start');
+            var postEnd = post.getAttribute('data-end');
+            var postTitle = post.getAttribute('data-title');
+            var happeningNow = false;
+
+            // if it goes to next day
+            if (postStart > postEnd) {
+                var postEndDay = days[(1 + days.indexOf(postStartDay)) % 7]
+            } else {
+                var postEndDay = postStartDay;
+            }
+
+            // get distance from reference - Sunday 00:00:00
+            distanceNow = days.indexOf(currDay) * 24 * 60 + timeToMinutes(currTime);
+            distancePostStart = days.indexOf(postStartDay) * 24 * 60 + timeToMinutes(postStart);
+            distancePostEnd = days.indexOf(postEndDay) * 24 * 60 + timeToMinutes(postEnd);
+
+            // check if event is happening
+            if (distancePostStart <= distancePostEnd) {
+                happeningNow = (distanceNow >= distancePostStart && distanceNow <= distancePostEnd);
+            } else {
+                happeningNow = (distanceNow >= distancePostStart || distanceNow <= distancePostEnd);
+            }
+
+            return happeningNow;
+        }
+
+        function distanceFromNow(post) {
+            var postStartDay = post.getAttribute('data-day');
+            var postStart = post.getAttribute('data-start');
+            var postEnd = post.getAttribute('data-end');
+            var postEndDay = postStartDay;
+            var postTitle = post.getAttribute('data-title');
+            var happeningNow = false;
+
+            // if it goes to next day
+            if (postStart > postEnd) {
+                postEndDay = days[(1 + days.indexOf(postStartDay)) % 7]
+            }
+
+            // get distance from reference - Sunday 00:00:00
+            distanceNow = days.indexOf(currDay) * 24 * 60 + timeToMinutes(currTime);
+            distancePostStart = days.indexOf(postStartDay) * 24 * 60 + timeToMinutes(postStart);
+            distancePostEnd = days.indexOf(postEndDay) * 24 * 60 + timeToMinutes(postEnd);
+
+            // check if event is happening
+            if (distancePostStart <= distancePostEnd) {
+                happeningNow = (distanceNow >= distancePostStart && distanceNow <= distancePostEnd);
+            } else {
+                happeningNow = (distanceNow >= distancePostStart || distanceNow <= distancePostEnd);
+            }
+
+            // calculate distance from now
+            if (happeningNow) {
+                return -10080;
+            } else {
+                return ((10080 - distanceNow) + distancePostStart) % 10080;
+            }
+        }
+
+        const list = document.querySelector('.list.list--posts');
+        const items = Array.from(list.getElementsByTagName('li'));
+
+        items.sort((a, b) => {
+            return distanceFromNow(a) - distanceFromNow(b);
+        });
+
+        list.innerHTML = '';
+        const titles = new Set();
+	const activePosts = new Set();
+
+        items.forEach(item => list.appendChild(item));
+
+        const posts = document.querySelectorAll('.item--post');
+        const collectionTitle = document.title;
+        var posted = 0;
+
+	posts.forEach(post => {
+		var postDay = post.getAttribute('data-day');
+	        var postFromNow = distanceFromNow(post);
+	        var not_active = (postDay != currDay || postFromNow > 1440)
+		if (not_active == false) {
+		    activePosts.add(post.getAttribute('data-title'))
+		     }
+		 });
+
+        posts.forEach(post => {
+            var happeningNow = isHappeningNow(post);
+            var postTitle = post.getAttribute('data-title');
+
+            if (post.getAttribute('data-recurring') == "true") {
+                if (collectionTitle === "drinkcheap - drinkcheap") {
+                    if (activePosts.has(postTitle) == false || titles.has(postTitle)) {
+                        post.style.display = 'none';
+                    } else {
+                        if (happeningNow) {
+                            post.querySelector('h2').innerHTML += ' <span class="happening-now" title="happening now">🔥</span>';
+                        }
+                        titles.add(postTitle);
+                        posted++;
+                    }
+                } else if (collectionTitle == "upcoming - drinkcheap") {
+                    if(activePosts.has(postTitle) || titles.has(postTitle) ) {
+                        post.style.display = 'none';
+                    } else {
+                        titles.add(postTitle);
+                        posted++;
+                    }
+                } 
+            }
+        });
+
+        if (posted == 0) {
+        	const message = document.createElement('p');
+        	message.style.marginTop = '50px';
+        	message.textContent = 'No upcoming listings right now';
+        	if (document.title == "drinkcheap - drinkcheap") {
+        		message.innerHTML = 'No events happening right now. Like <i>now now<i>.<br> Please check the upcoming section. Thanks!'
+        	}
+
+        	message.style.color = '#5B5BFF'; // Optional: style the message
+
+	        // Insert the message into the DOM
+	        const contentDiv = document.querySelector('.content');
+	        contentDiv.appendChild(message);
+
+        }
+    };
+
+    document.addEventListener("DOMContentLoaded", filterPosts);
+    window.addEventListener("popstate", filterPosts);
+    window.addEventListener("hashchange", filterPosts);
+</script>
+
+<style>
+    .happening-now {
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+    }
+
+    .happening-now::after {
+        content: "happening now";
+        position: absolute;
+        color: #5b5bff;
+        padding: 3px 8px;
+        font-size: 0.5em;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .happening-now:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-5px);
+    }
+
+    .tag {
+        background-color: #ffdfdf;
+        color: #333;
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-size: 15px;
+        border: 1px solid #ddd;
+    }
+</style>
+
+{% include site-footer.html %}
